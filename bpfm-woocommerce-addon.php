@@ -120,7 +120,7 @@ class BPFM_WooCommerce_Addon {
 			}
 		}
 
-		if ( $set_featured && bp_featured_members()->is_featured( $order->get_user_id() ) ) {
+		if ( $set_featured && ! bp_featured_members()->is_featured( $order->get_user_id() ) ) {
 			bp_featured_members()->add_user( $order->get_user_id() );
 		}
 	}

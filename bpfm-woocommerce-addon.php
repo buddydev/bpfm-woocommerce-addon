@@ -50,7 +50,7 @@ class BPFM_WooCommerce_Addon {
 	 */
 	private function setup() {
 
-		if ( ! function_exists( 'bp_featured_members' ) || ! function_exists( 'WC' ) ) {
+		if ( ! function_exists( 'bp_featured_members' ) && ! function_exists( 'WC' ) ) {
 			return;
 		}
 
@@ -67,6 +67,7 @@ class BPFM_WooCommerce_Addon {
 	 * @param WP_Post $post Post object.
 	 */
 	public function add_meta_box( $post ) {
+
 		add_meta_box(
 			'set_as_featured_member',
 			__( 'Featured Member' ),

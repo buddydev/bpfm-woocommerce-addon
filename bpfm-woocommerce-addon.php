@@ -59,6 +59,7 @@ class BPFM_WooCommerce_Addon {
 
 		// On order status complete.
 		add_action( 'woocommerce_order_status_completed', array( $this, 'on_order_status_complete' ) );
+		add_action( 'bp_template_redirect', array( $this, 'on_template_redirect' ) );
 	}
 
 	/**
@@ -88,7 +89,31 @@ class BPFM_WooCommerce_Addon {
 		$set_featured_member = get_post_meta( $post->ID, '__set_as_featured_member', true );
 		$set_featured_member = $set_featured_member ? 1 : 0;
 
-		echo sprintf( '<label><input value="1" type="checkbox" name="set-as-featured-member" %s />%s</label>', checked( $set_featured_member, 1, false ), __( 'If Purchased, User will be set as Featured Member', 'bpfm-woocommerce-addon' ) );
+		$selected_page_id = get_post_meta( $post->ID, '__already_featured_redirect_page_id', true );
+		$selected_page_id = $selected_page_id ? $selected_page_id : '';
+		?>
+		<p>
+			<label>
+				<input value="1" type="checkbox"
+				       name="set-as-featured-member" <?php checked( $set_featured_member, 1 ) ?> />
+				<?php esc_html_e( 'If Purchased, User will be set as Featured Member', 'bpfm-woocommerce-addon' ); ?>
+			</label>
+		</p>
+		<p>
+			<label>
+				<?php _e( 'Select page user will be redirected if already a featured member.', 'bpfm-woocommerce-addon' ); ?><br>
+				<?php
+				wp_dropdown_pages(
+					array(
+						'show_option_none' => __( '--Select--', 'bpfm-woocommerce-addon' ),
+						'name'             => 'already-featured-member-redirect-page-id',
+						'selected'         => $selected_page_id,
+					)
+				);
+				?>
+			</label>
+		</p>
+		<?php
 	}
 
 	/**
@@ -103,6 +128,12 @@ class BPFM_WooCommerce_Addon {
 		} else {
 			delete_post_meta( $post_id, '__set_as_featured_member' );
 		}
+
+		if ( ! empty( $_POST['already-featured-member-redirect-page-id'] ) ) {
+			update_post_meta( $post_id, '__already_featured_redirect_page_id', absint( $_POST['already-featured-member-redirect-page-id'] ) );
+		} else {
+			delete_post_meta( $post_id, '__already_featured_redirect_page_id' );
+		}
 	}
 
 	/**
@@ -115,7 +146,9 @@ class BPFM_WooCommerce_Addon {
 
 		$set_featured = false;
 		foreach ( $order->get_items() as $item ) {
-			if ( get_post_meta( $item->get_product_id(), '__set_as_featured_member', true ) ) {
+			$product_id = $item->get_product_id();
+
+			if ( get_post_meta( $product_id, '__set_as_featured_member', true ) ) {
 				$set_featured = true;
 				break;
 			}
@@ -123,6 +156,36 @@ class BPFM_WooCommerce_Addon {
 
 		if ( $set_featured && ! bp_featured_members()->is_featured( $order->get_user_id() ) ) {
 			bp_featured_members()->add_user( $order->get_user_id() );
+		}
+	}
+
+	/**
+	 * On redirect
+	 */
+	public function on_template_redirect() {
+
+		// If not single product page or user not logged in.
+		if ( ! is_product() || ! is_user_logged_in() ) {
+			return;
+		}
+
+		$product_id = get_queried_object_id();
+
+		// If not product making user featured redirect.
+		if ( ! get_post_meta( $product_id, '__set_as_featured_member', true ) ) {
+			return;
+		}
+
+		$is_featured_member = bp_featured_members()->is_featured( get_current_user_id() );
+
+		if ( ! $is_featured_member ) {
+			return;
+		}
+
+		$already_featured_redirect_page_id = get_post_meta( $product_id, '__already_featured_redirect_page_id', true );
+
+		if ( $already_featured_redirect_page_id && ! is_page( $already_featured_redirect_page_id ) ) {
+			wp_safe_redirect( get_permalink( $already_featured_redirect_page_id ) );
 		}
 	}
 }
